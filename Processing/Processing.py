@@ -48,11 +48,8 @@ def galois_bch_correction(alice_bits, bob_bits):
 
 
         bob_data=bob_bits.copy().astype(int)
-
-        # 模拟含噪传输（拼接Bob数据）
         received = np.concatenate([bob_data, encoded[len(bob_bits):]])
-
-        # 解码纠错（自动截断填充位）
+        # 解码纠错
         # decoded = bch.decode(received.reshape(-1, 63))
         decoded = bch.decode(received.reshape(-1, bch.n))
         return decoded.flatten()[:len(alice_bits)]
@@ -76,27 +73,20 @@ def modify_consecutive_enhanced(data_list, max_run_length):
     modified = data_list.view(np.ndarray).copy()
     n = len(modified)
     i = 0
-
     while i < n:
         run_start = i
         current_value = modified[i]
-
-        # 检测连续相同值段（0或1）
+        # 检测连续相同值段（01）
         while i < n and modified[i] == current_value:
             i += 1
         run_length = i - run_start
-
         # 对任何超过长度的连续段进行处理
         if run_length > max_run_length:
-            # 需要反转的位数
             num_to_flip = run_length - max_run_length
-            # 随机选择反转位置
             flip_indices = random.sample(
                 range(run_start, i),
                 num_to_flip
             )
-
-            # 执行位翻转（0↔1）
             modified[flip_indices] = 1 - modified[flip_indices]
 
     # 转换回GF(2)数组
@@ -168,12 +158,9 @@ def bits_to_bytes(bits):
 #     std_dev = stdev(data)
 #     print(f"mean={mean_value}")
 #     print(f"std={std_dev}")
-#
-#
 #     # 阈值
 #     threshold1 = mean_value + a * std_dev
 #     threshold2 = mean_value - a * std_dev
-#
 #     # 数据量化
 #     num = 0
 #     while num < len(data):
@@ -184,8 +171,6 @@ def bits_to_bytes(bits):
 #         else :
 #             result[num] = 1
 #         num = num + 1
-#
-#     # 结果长度为128,少了补0，但是滤波会舍弃部分数据，下次采集一组设置为135个
 #     while len(result) < 128:
 #         result.append(0)
 #     while len(result) > 128:
@@ -201,7 +186,6 @@ def bits_to_bytes(bits):
 def mean_quantizer(data, a):
     # 小波预处理
     processed_data = dct_pre(data)  # 已定义 wavelet_pre 函数
-    # 预处理后的数据
     plt.figure(figsize=(10, 6))
     plt.plot(processed_data, label='Processed RSSI', color='green', marker='o')
     plt.grid(True)
@@ -227,9 +211,7 @@ def mean_quantizer(data, a):
         elif value < threshold2:
             result.append(1)
         else:
-
             result.append(1)
-
     # 调整结果长度为128
     if len(result) < 128:
         result += [0] * (128 - len(result))
@@ -237,13 +219,10 @@ def mean_quantizer(data, a):
         result = result[:128]
 
     return result, threshold1, threshold2
-
-
 # 量化Alice和Bob的RSSI数据
 def quantize_rssi(rssi_data, a=0.00):
     result = [0] * len(rssi_data)  # 初始化结果列表
     return mean_quantizer(rssi_data, a)
-
 def quantized_to_binary(quantized_data):
     return ''.join(['{:01b}'.format(q) for q in quantized_data])
 
@@ -252,9 +231,7 @@ def dct_pre(data):
     # dct预处理
     pre = dct(data, 2)
     split = 1
-    # 舍弃前split个数据
     pre_np = pre[split:]
-    # 把数据转为list
     pre_list = pre_np.tolist()
     return pre_list
 
@@ -367,14 +344,12 @@ def _select_coeffs(signal, block_size):
     stability_scores = np.abs(coeff_stability)
     return np.argsort(stability_scores)[:3].tolist()  # 选择最稳定的3个
 
-
 def negotiate_parameters(pilot_signal, max_block_size=32):
     """双方独立执行的参数协商函数"""
     # 第一阶段：分块大小选择
     block_size = _select_block_size(pilot_signal, max_block_size)
     # 第二阶段：系数选择
     selected_coeffs = _select_coeffs(pilot_signal, block_size)
-
     return block_size, selected_coeffs
 
 def calculate_mismatch_rate_with_length_check(seq1, seq2):
@@ -392,22 +367,15 @@ def add_arrays(arr1, arr2):
     if len(arr1) != len(arr2):
         print(len(arr1),len(arr2))
         raise ValueError("数组长度不相等，无法相加！")
-
-    # 创建一个空的结果数组
     result = []
-
-    # 用for循环逐一相加
     for i in range(len(arr1)):
         result.append(arr1[i] + arr2[i])
-
     return result
 
 
 def plus_arrays(arr, subnum):
     # 检查两个数组长度是否相同
     result = []
-
-    # 用for循环逐一相加
     for i in range(len(arr)):
         result.append(arr[i] + subnum)
 
@@ -416,11 +384,7 @@ def plus_arrays(arr, subnum):
 
 def min_arrays(arr, subnum):
     # 检查两个数组长度是否相同
-
-    # 创建一个空的结果数组
     result = []
-
-    # 用for循环逐一相加
     for i in range(len(arr)):
         result.append(arr[i] - subnum)
 
@@ -541,7 +505,7 @@ def dft_test(bits):
 
 
 def linear_complexity_test(bits, block_size=500):
-    """修复后的线性复杂度测试（严格遵循NIST SP800-22标准）"""
+    """修复后的线性复杂度测试（NIST SP800-22标准）"""
     bits = np.asarray(bits, dtype=int)
     n = len(bits)
 
@@ -636,25 +600,15 @@ def approximate_entropy_test(bits_sequence):
 
 def cumulative_sums_test(bits):
     """
-    NIST累积和测试（修正版）
-    输入：二进制列表（如[0,1,0,1,...]）
-    输出：P值
+    NIST累积和测试
     """
     # 转换为numpy数组并转为±1序列
     bits = np.array(bits, dtype=int)
     X = 2 * bits - 1  # 将0/1转为-1/+1
-
-    # 计算前向累积和
     S = np.cumsum(X)
     z_forward = np.max(np.abs(S)) / np.sqrt(len(bits))
-
-    # 计算后向累积和（反转序列）
     z_backward = np.max(np.abs(np.cumsum(X[::-1]))) / np.sqrt(len(bits))
-
-    # 取最大值作为统计量
     z = max(z_forward, z_backward)
-
-    # 计算P值（级数展开法）
     sum_terms = 0.0
     for k in range(-5, 6):
         term1 = math.erfc((4 * k + 1) * z / math.sqrt(2))
@@ -711,7 +665,6 @@ def berlekamp_massey(sequence):
                 B = T
 
     return L
-
 
 def apply_nist_suite(bits, alpha=0.01):
     """执行完整的NIST测试套件"""
@@ -805,8 +758,6 @@ plt.plot(rplusp_bob, label='Original RSSI Bob', linestyle='--', marker='x', alph
 # 滤波 rssi
 plt.plot(rplusp_eve_smoothed, label='Smoothed RSSI Eve', color='blue', marker='o')
 plt.plot(rplusp_bob_smoothed, label='Smoothed RSSI Bob', color='orange', marker='x')
-
-
 plt.legend()
 plt.title(f' Smoothed correlation:{correlation_smoothed_eve}')
 plt.xlabel('Packet Number')
