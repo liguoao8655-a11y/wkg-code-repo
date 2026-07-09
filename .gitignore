@@ -1,0 +1,17 @@
+# OS files
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.vscode/
+.idea/
+
+# Arduino build artifacts
+*.elf
+*.map
+build/
